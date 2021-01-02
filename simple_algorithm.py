@@ -1,8 +1,10 @@
 """Реализация простого алгоритма управления движением лифта.
+При запуске скрипта задается количество этажей в здании.
 На каждом этаже для вызова лифта предусмотрены две кнопки со стрелками (вверх и вниз).
-Правила:
+Нажатие кнопок в кабине лифта и на этажах имитирует функция со случайным выбором.
+Правила движения лифта:
 - Пока внутри лифта или на этажах по ходу движения есть пассажиры,
-  которым нужно ехать в ту же сторону, лифт движется в эту сторону;
+  которым нужно ехать в ту же сторону, лифт движется в эту сторону.
 - Если вызовов по ходу движения больше нет, но есть в обратную сторону, лифт меняет направление.
 Алгоритм оптимален при небольшом количестве этажей и наличии одного лифта в здании.
 """
@@ -11,21 +13,22 @@ from threading import Thread
 import time
 import random
 
+n_floors = int(input('Number of floors:\t'))
+
 directions = {1: 'Up', -1: 'Down'}
 
 
 class Elevator:
-    """Класс для управления лифтом.
-    Исходное состояние лифта - на уровне 1-го этажа."""
-
-    moving = False
-    cur_floor = 1
-    speed = 0
+    """Класс для управления лифтом."""
 
     def __init__(self, n_floors):
         """При инициализации экземпляра класса указывается количество этажей в здании.
-        В исходном состоянии ни одна из кнопок внутри кабины и на этажах не нажата."""
+        В исходном состоянии ни одна из кнопок внутри кабины и на этажах не нажата.
+        Исходное состояние лифта - на уровне 1-го этажа."""
         self.n_floors = n_floors
+        self.moving = False
+        self.cur_floor = 1
+        self.speed = 0
         self.inside_buttons = [False for _ in range(n_floors + 1)]
         self.outside_buttons_up = [False for _ in range(n_floors + 1)]
         self.outside_buttons_down = [False for _ in range(n_floors + 1)]
@@ -33,7 +36,6 @@ class Elevator:
     def press_inside_button(self, floor):
         """Функция обрабатывает нажатие кнопок внутри кабины лифта."""
         print(f'Button {floor} pressed inside the cabin.')
-
         self.inside_buttons[floor] = True
 
         delta = floor - self.cur_floor
@@ -67,7 +69,8 @@ class Elevator:
             self.manage_movement()
 
     def check_status(self, speed):
-        """Функция обновляет скорость (направление) движения лифта."""
+        """Функция обновляет скорость (направление) движения
+        только для стоящего лифта."""
         if self.speed == 0:
             self.speed = speed
 
@@ -135,6 +138,10 @@ class Elevator:
             else:  # Нет нажатых кнопок:
                 stop_movement = True
 
+        # Случай, когда повторно нажата кнопка текущего этажа после остановки лифта:
+        else:
+            stop_movement = False  # Лифт с нулевой скоростью останется на том же этаже, но двери откроются.
+
         if stop_movement:
             self.stop()
         else:
@@ -165,7 +172,6 @@ def random_calls(n_floors):
     """Функция имитирует вызовы лифта пассажирами.
     Нажатие случайной кнопки происходит каждые 3-5 секунд."""
     print('Random function started.')
-    global lift
 
     while True:
         time_gap = random.randint(3, 5)
@@ -176,11 +182,15 @@ def random_calls(n_floors):
         if action_type == 'inside':
             Thread(target=lift.press_inside_button, args=(floor,)).start()
         elif action_type == 'outside':
-            direction = random.choice([1, -1])
+            if floor == 1:
+                direction = 1
+            elif floor == n_floors:
+                direction = -1
+            else:
+                direction = random.choice([1, -1])
             Thread(target=lift.press_outside_button, args=(floor, direction)).start()
 
 
-n_floors = int(input('Number of floors:\t'))
 lift = Elevator(n_floors)
 
 Thread(target=random_calls, args=(n_floors,)).start()
